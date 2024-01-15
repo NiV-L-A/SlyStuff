@@ -1,0 +1,465 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.1 Binary Template
+//
+//      File: Sly 2 .G
+//   Authors: NiV
+//   Version: 0.0.1
+//   Purpose: Parsing the .G files from Sly 2
+//  Category: Sly Cooper Modding Experience
+// File Mask: *.G
+//  ID Bytes: 5A 52 42 2E 06 00 // ZRB 0x2E 0x06 0x00
+//   History: 
+//------------------------------------------------
+/*
+8-Bit Signed Integer - char, byte, CHAR, BYTE
+8-Bit Unsigned Integer - uchar, ubyte, UCHAR, UBYTE
+16-Bit Signed Integer - short, int16, SHORT, INT16
+16-Bit Unsigned Integer - ushort, uint16, USHORT, UINT16, WORD
+32-Bit Signed Integer - int, int32, long, INT, INT32, LONG
+32-Bit Unsigned Integer - uint, uint32, ulong, UINT, UINT32, ULONG, DWORD
+64-Bit Signed Integer - int64, quad, QUAD, INT64, __int64
+64-Bit Unsigned Integer - uint64, uquad, UQUAD, UINT64, QWORD, __uint64
+32-Bit Floating Point Number - float, FLOAT
+64-Bit Floating Point Number - double, DOUBLE
+16-Bit Floating Point Number - hfloat, HFLOAT
+Date Types - DOSDATE, DOSTIME, FILETIME, OLETIME, time_t, time64_t
+cBlack - 0x000000
+cRed - 0x0000ff
+cDkRed - 0x000080
+cLtRed - 0x8080ff
+cGreen - 0x00ff00
+cDkGreen - 0x008000
+cLtGreen - 0x80ff80
+cBlue - 0xff0000
+cDkBlue - 0x800000
+cLtBlue - 0xff8080
+cPurple - 0xff00ff
+cDkPurple - 0x800080
+cLtPurple - 0xffe0ff
+cAqua - 0xffff00
+cDkAqua - 0x808000
+cLtAqua - 0xffffe0
+cYellow - 0x00ffff
+cDkYellow - 0x008080
+cLtYellow - 0x80ffff
+cDkGray - 0x404040
+cGray - 0x808080,
+cSilver - 0xc0c0c0,
+cLtGray - 0xe0e0e0
+cWhite - 0xffffff
+cNone - 0xffffffff
+*/
+
+// After every field of every struct there's an address.
+// The address is the location of the instruction that reads the field.
+// The addresses are all got from the Sly 2 PS3 (PSN) EU version (NPEA00342)
+// RGBA values can be from 0 to 0x80, anything over 0x80 will be considered as 0x80
+
+/*
+NOTES:
+menu_pause
+@0x1A - 0x1D all 0 = top left
+@0x23 - 0x26 all 0 = top right
+@0x2C - 0x2F all 0 = bottom right
+@0x35 - 0x38 all 0 = remove black background
+
+https://i.gyazo.com/80e7e8e78e0d82195cb2f65b7db303cc.mp4
+@0x1A = -880, -640
+@0x23 = 880, -640
+@0x2C = 880, 640
+@0x35 = -880, 640
+
+https://gyazo.com/39cb6286370c7a878fd3ddeaaa7d9624
+@0x1A = -400, -640
+@0x23 = 880, -640
+@0x2C = 880, 640
+@0x35 = -880, 640
+
+https://gyazo.com/db3d1ee8ca6c6f775047c2e606e27269
+https://gyazo.com/13aade94e2b9e11b319c3326e2f4f6c7
+@0x1A = -400, -200
+@0x23 = 880, -640
+@0x2C = 880, 640
+@0x35 = -880, 640
+
+@0xA7A5 = "WE'LL BE RIGHT BACK!" shadow text
+
+menu_power_ups_sly
+X = Left/Right (Towards positive -> right) | Y = Up/Down
+If "Index" is set to 0, it won't load that part
+Original https://i.gyazo.com/b9b520974d1ee6f2a8453e9660da74a5.png
+@0x8 0 = Remove black background https://i.gyazo.com/274a25a933139bb5ec47e010a2eae909.png
+@0x41 0 = Remove out line https://i.gyazo.com/35b2f7c11f6dfe65c950a29a7e9503b8.png
+@0x85 0 = Remove Powerups text https://i.gyazo.com/b0a43b043c17b9841d42c2e7036d93f0.png
+@0x8B = RGBA (max Alpha is 0x7F), then 3 floats: 1 scale, ?, X coord)
+@0xA9 0 = Remove the 4 grid lines https://i.gyazo.com/7c5cca0cd6d33e9b4384874562771d11.png
+@0x115 0 = Remove cyan background behind sly + sly outline(?) https://i.gyazo.com/93204a8eb479d7af28f52dd8f9112d60.png
+@0x4A8 0 = Remove sly https://i.gyazo.com/d5b4655e1aecefa5094d3542f1d11e77.png
+@0x331A 0 = Remove black delimiter between sly and the grid https://i.gyazo.com/578bb5867b479425bb33fcd0ea27da9a.png
+@0x367D 0 = Remove Combat Dodge https://i.gyazo.com/24ea0cb1b16b986cf18e9c75a9747225.png
+@0x1195B 0 = Width of selector
+@0x1195F 1 = Stretch X https://i.gyazo.com/592727135542c6dd5552ccd3712127d5.png
+@0x11967 1 = Stretch Y https://i.gyazo.com/eb546e501b6e0b9e1ba1dbb69fea215d.png
+@0x1196B 0 = Height of selector
+@0x11973 = Position X
+@0x11977 = Position Y
+@0x13DA2 Gadget description text stretch/scale Y (up/down)
+@0x13DAA Gadget description text Position X (towards positive -> right)
+@0x13DAE Gadget description text Position Y (towards positive -> down)
+@0x11AA7 Combat Dodge trans
+Indices:
+000B Sly
+000E Combat Dodge
+000F Selector
+0013 Stealth Slide - 0014 | 00000004 | 0009
+0015 Alarm Clock - 0016 | 00000004 | 000A
+0017 Thief Reflexes - 0018 | 00000004 | 000B
+0019 Feral Pounce - 001A | 00000004 | 000C
+001B Knockout Dive
+001C Knockout Dive's "angels" - 001D | 00000004 | 000D
+001E Knockout Dive's stars - 001F | 00000004 | 000E
+0020 Hypnotic circle
+0021 Cane
+0022 Exclamation mark - 0023 | 00000004 | 000F
+0024 Voltage Attack - 0025 | 00000004 | 0010
+0026 Bomb - 0027 | 00000004 | 0011 - 0028 | 00000004 | 0012
+0029 Music Box - 002A | 00000004 | 0013
+002B Silent Obliteration - 002C | 00000004 | 0014
+002D Shadow Power - 002E | 00000004 | 0015
+002F TOM - 0030 | 00000004 | 0016
+0031 Time Rush - 0032 | 00000004 | 0017
+0033 Mega Jump - 0034 | 00000004 | 0018
+0035 Smoke Bomb's smoke - 0036 | 00000004 | 0019
+0037 Paraglider - 0038 | 00000004 | 001A
+0039 Lightning Spin - 003A | 00000004 | 001B
+*/
+
+local int bgcol, fgcol;
+local int i = 0;
+local int j = 0;
+local int k = 0;
+local byte PrintMode = 2;
+
+typedef struct vec3_t(int bcol, int fcol)
+{
+	bgcol = bcol; fgcol = fcol;
+	float X, Y, Z;
+} Vec3<read=read_vec3, bgcolor=bgcol, fgcolor=fgcol>;
+string read_vec3(Vec3 &v)
+{
+	local string s;
+	SPrintf(s, "%11f %11f %11f", v.X, v.Y, v.Z);
+	return s;
+}
+
+typedef struct mat3_t(int bcol, int fcol)
+{
+	bgcol = bcol; fgcol = fcol;
+	Vec3 M0(bgcol, fgcol);
+	Vec3 M1(bgcol, fgcol);
+	Vec3 M2(bgcol, fgcol);
+} Mat3 <read=read_mat3>;
+string read_mat3(Mat3 &v)
+{
+	string s;
+	SPrintf(s,
+"\n%11f\t%11f\t%11f %11f\t%11f\t%11f %11f\t%11f\t%11f",
+v.M0.X, v.M0.Y, v.M0.Z,
+v.M1.X, v.M1.Y, v.M1.Z,
+v.M2.X, v.M2.Y, v.M2.Z);
+	return s;
+}
+
+struct PolygonData_t
+{
+    BigEndian();
+    uint RGBA<fgcolor=cYellow>; // 00157b0c
+    LittleEndian();
+    ubyte unk2; // 00157b70. Always 0?
+    short PositionX; // 00157b88 - PositionX
+    short PositionY; // 00157b98 - PositionY
+};
+
+struct Polygon_t
+{
+    // PolygonHeader_t
+    ubyte VtxCount<bgcolor=cBlack, fgcolor=cAqua>; // 00157a38
+    ubyte Layer<bgcolor=cBlack, fgcolor=cRed>; // 00157a48
+    ubyte unk3<bgcolor=cBlack, fgcolor=cRed>; // 00157a58. For powerups_sly, its 0x2 for the selector (index 0xf). It's to color only the edges and not "fill"
+    ubyte unk4<bgcolor=cBlack, fgcolor=cRed>; // 00157a6c
+    ubyte unk5<bgcolor=cBlack, fgcolor=cRed>; // 00157a80
+
+    if (VtxCount != 0)
+    {
+        PolygonData_t PolygonData[VtxCount]<optimize=false>;
+    }
+};
+
+struct Text_t
+{
+    uint RGBA<fgcolor=cYellow>; // 001581a0
+    float Scale; // 00158200
+    float unk1; // 00158210
+    float PositionX; // 00158220
+    ubyte Align; // 00158230. 0 left, 1 center, 2 right
+    ubyte unk2; // 00158244
+    if (unk2 == 0 || unk2 == 1)
+    {
+        uint unk4; // 001582f4
+    }
+};
+
+struct FirstSection_t
+{
+    ushort Index<bgcolor=cBlack, fgcolor=cPurple>; // 0015853c.
+    uint Type<bgcolor=cBlack, fgcolor=cGreen>; // 001575e8.
+    if (Type < 9) // 00157600
+    {
+        //local int temp = Type << 2; // Flag * 4
+        if (Type == 1) // Polygon
+        {
+            ushort PolyCount<bgcolor=cAqua>; // 001579a8
+            Polygon_t Polygon[PolyCount]<optimize=false>;
+        }
+        else if (Type == 3) // Text?
+        {
+            Text_t Text[1]<optimize=false>; // 0015819c
+        }
+        else if (Type == 4) // Group?
+        {
+            ushort SecondSectionIndex<bgcolor=cBlack, fgcolor=cRed>; // 001579a8
+        }
+    }
+    // Type 9 exists, but it's empty
+};
+
+struct Header_t
+{
+    char Magic[0x4]<bgcolor=cRed>; // 001611dc
+    ushort Version<bgcolor=cRed>; // 6 for sly 2, 7 for sly 3
+    ushort Count<bgcolor=cAqua>; // 001584f0
+};
+
+struct R8_t
+{
+    ubyte unk1; // 00158d34
+    uint unk2; // 00158d68
+};
+
+struct R7_t
+{
+    ubyte unk1; // 00158cc8
+};
+
+struct R6_t
+{
+    ushort unk1; // 00158c60
+};
+
+struct R5_t
+{
+    uint unk1; // 00158af4
+    uint unk2; // 00158b0c
+};
+
+struct R4_t
+{
+    ushort ObjectIndex; // 001589b8. Object index is the "Index" of the first section
+    // Printf("[%08X] %04X\n", (FTell() - 2), ObjectIndex);
+    ushort unk2; // 001589d8
+    ushort unk3; // 001589ec
+    ushort unk4; // 001589f8
+    ubyte unk5; // 00158a08
+    ubyte unk6; // 00158a18
+    uint unk7; // 00158a28
+    Mat3 unk8(cGreen, cNone)<optimize=false>; // 00158a40
+};
+
+struct R3_t
+{
+    float KeyFrameValue_Maybe<bgcolor=cDkRed>; // 00158938
+    ubyte unk2Count<bgcolor=0xffff00>; // 0015894c.
+    if (unk2Count != 0)
+    {
+        R4_t R4[unk2Count]<optimize=false>;
+    }
+    ubyte unk3Count<bgcolor=0xffff33>; // 00158aac.
+    if (unk3Count != 0)
+    {
+        R5_t R5[unk3Count]<optimize=false>;
+    }
+    ubyte unk4Count<bgcolor=0xffff66>; // 00158c18.
+    if (unk4Count != 0)
+    {
+        R6_t R6[unk4Count]<optimize=false>;
+    }
+    ubyte unk5Count<bgcolor=0xffff99>; // 00158c84.
+    if (unk5Count != 0)
+    {
+        R7_t R7[unk5Count]<optimize=false>;
+    }
+    ubyte unk6Count<bgcolor=0xffffCC>; // 00158cec.
+    if (unk6Count != 0)
+    {
+        R8_t R8[unk6Count]<optimize=false>;
+    }
+};
+
+struct R2_t
+{
+    float AnimationLengthInSeconds_Maybe<bgcolor=cRed>; // 001588b4
+    uint unk2; // 001588c8
+    ushort KeyFramesCount_Maybe<bgcolor=cAqua>; // 001588dc.
+    if (KeyFramesCount_Maybe != 0)
+    {
+        R3_t R3[KeyFramesCount_Maybe]<optimize=false>;
+    }
+};
+
+struct R1_t
+{
+    ushort unk1<bgcolor=cLtRed>; // 001586ac. * 0x18
+    ushort unk2; // 001586ec
+    ushort unk3Count<bgcolor=cAqua>; // 001587c4.
+    if (unk3Count != 0)
+    {
+        R2_t R2[unk3Count]<optimize=false>;
+    }
+};
+
+struct SecondSection_t
+{
+    ushort Count<bgcolor=cAqua>; // 00158604
+    if (Count != 0)
+    {
+        R1_t R1[Count]<optimize=false>;
+    }
+};
+
+Header_t Header[1]; // 001611dc
+//FSeek(0x535822);
+//ushort Count<bgcolor=cAqua>; // 001584f0
+FirstSection_t FirstSection[Header.Count]<optimize=false>; // 00161268. Objects list
+SecondSection_t SecondSection[1]<optimize=false>; // 00161274. CSS / Animation related?
+
+Printf("\n");
+if (PrintMode == 1)
+{
+    i = 0;
+    j = 0;
+    k = 0;
+    local int temp = 0;
+    for (i = 0; i < Header.Count; i++)
+    {
+        Printf("%04X | %08X", FirstSection[i].Index, FirstSection[i].Type);
+        if (FirstSection[i].Type < 9)
+        {
+            //temp = FirstSection[i].Type << 2;
+            if (FirstSection[i].Type == 1) // Polygon
+            {
+                Printf(" | %04X", FirstSection[i].PolyCount);
+                for (j = 0; j < FirstSection[i].PolyCount; j++)
+                {
+                    temp = FirstSection[i].Polygon[j].PolygonData[0].RGBA;
+                    Printf("\n\t%02X %02X %02X %02X %02X", FirstSection[i].Polygon[j].VtxCount, FirstSection[i].Polygon[j].Layer, FirstSection[i].Polygon[j].unk3, FirstSection[i].Polygon[j].unk4, FirstSection[i].Polygon[j].unk5);
+                    for (k = 0; k < FirstSection[i].Polygon[j].VtxCount; k++)
+                    {
+                        Printf("\n\t   %08X %02X %d %d", FirstSection[i].Polygon[j].PolygonData[k].RGBA, FirstSection[i].Polygon[j].PolygonData[k].unk2, FirstSection[i].Polygon[j].PolygonData[k].PositionX, FirstSection[i].Polygon[j].PolygonData[k].PositionY);
+                    }
+                }
+            }
+            else if (FirstSection[i].Type == 4) // Group?
+            {
+                Printf(" | %04X", FirstSection[i].SecondSectionIndex);
+            }
+            else if (FirstSection[i].Type == 3) // Text?
+            {
+                Printf(" | %08X %11f %11f %11f %02X %02X", FirstSection[i].Text[0].RGBA, FirstSection[i].Text[0].Scale, FirstSection[i].Text[0].unk1, FirstSection[i].Text[0].PositionX, FirstSection[i].Text[0].Align, FirstSection[i].Text[0].unk2);
+                if (FirstSection[i].Text[0].unk2 == 0 || FirstSection[i].Text[0].unk2 == 1)
+                {
+                    Printf(" %08X", FirstSection[i].Text[0].unk4);
+                }
+            }
+        }
+        Printf("\n");
+    }
+}
+else if (PrintMode == 2)
+{
+    // You can use https://editsvgcode.com/ to display the output
+    Printf("<svg width=\"900\" height=\"800\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"-1000 0 2000 1\">\n");
+    // is a cool combination of values. Change the viewBox values as desired.
+    i = 0;
+    j = 0;
+    k = 0;
+    local int temp = 0;
+    for (i = 0; i < Header.Count; i++)
+    {
+        Printf("%04X | %08X", FirstSection[i].Index, FirstSection[i].Type);
+        
+        if (FirstSection[i].Type < 9)
+        {
+            //temp = FirstSection[i].Type << 2;
+            if (FirstSection[i].Type == 1) // Polygon
+            {
+                Printf(" | %04X", FirstSection[i].PolyCount);
+                for (j = 0; j < FirstSection[i].PolyCount; j++)
+                {
+                    temp = FirstSection[i].Polygon[j].PolygonData[0].RGBA;
+                    if ((temp & 0xFF) == 0x80)
+                    {
+                        temp = (temp & 0xFFFFFF00) + 0xFF;
+                    }
+                    else
+                    {
+                        temp = (temp & 0xFFFFFF00) + ((temp & 0xFF) * 2);
+                    }
+                    
+                    // Uncomment this section to force parse as a <polygon> tag
+                    /*
+                    Printf("\n<polygon Layer=\"%d\" style=\"fill: #%08X\" points=\"", FirstSection[i].Polygon[j].Layer, temp);
+                    for (k = 0; k < FirstSection[i].Polygon[j].VtxCount; k++)
+                    {
+                        Printf("%d,%d ", FirstSection[i].Polygon[j].PolygonData[k].PositionX, FirstSection[i].Polygon[j].PolygonData[k].PositionY);
+                    }
+                    Printf("\" />");
+                    */
+
+                    // Uncomment this section to force parse as a <path> tag
+                    // Note that the reason behind the output of this was to re-order the tags
+                    // based on their Layer value automatically. After the dump in the output window,
+                    // copy an array of <path> tags and put them in the "elements" List<string>
+                    // variable in the following C# code: https://dotnetfiddle.net/w5FfEX
+                    
+                    if (FirstSection[i].Polygon[j].unk3 != 2)
+                    {
+                        Printf("\n\"<path Layer=\\\"%d\\\" fill=\\\"#%08X\\\" d=\\\"M%d %d", FirstSection[i].Polygon[j].Layer, temp, FirstSection[i].Polygon[j].PolygonData[0].PositionX, FirstSection[i].Polygon[j].PolygonData[0].PositionY);
+                    }
+                    else if (FirstSection[i].Polygon[j].unk3 == 2)
+                    {
+                        Printf("\n\"<path Layer=\\\"%d\\\" fill=\\\"none\\\" stroke=\\\"#%08X\\\" stroke-width=\\\"50\\\" d=\\\"M%d %d", FirstSection[i].Polygon[j].Layer, temp, FirstSection[i].Polygon[j].PolygonData[0].PositionX, FirstSection[i].Polygon[j].PolygonData[0].PositionY);
+                    }
+                    for (k = 1; k < FirstSection[i].Polygon[j].VtxCount; k++)
+                    {
+                        Printf(" L%d %d", FirstSection[i].Polygon[j].PolygonData[k].PositionX, FirstSection[i].Polygon[j].PolygonData[k].PositionY);
+                    }
+                    Printf("\\\" />\",");
+                    
+                }
+            }
+            else if (FirstSection[i].Type == 4) // Group?
+            {
+                Printf(" | %04X", FirstSection[i].SecondSectionIndex);
+            }
+            else if (FirstSection[i].Type == 3) // Text?
+            {
+                Printf("\n\t%08X %11f %11f %11f %02X %02X", FirstSection[i].Text[0].RGBA, FirstSection[i].Text[0].Scale, FirstSection[i].Text[0].unk1, FirstSection[i].Text[0].PositionX, FirstSection[i].Text[0].Align, FirstSection[i].Text[0].unk2);
+                if (FirstSection[i].Text[0].unk2 == 0 || FirstSection[i].Text[0].unk2 == 1)
+                {
+                    Printf(" %08X", FirstSection[i].Text[0].unk4);
+                }
+            }
+        }
+        Printf("\n");
+    }
+}

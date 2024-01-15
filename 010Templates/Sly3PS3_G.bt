@@ -1,0 +1,308 @@
+//------------------------------------------------
+//--- 010 Editor v13.0.1 Binary Template
+//
+//      File: Sly 3 .G
+//   Authors: NiV
+//   Version: 0.0.1
+//   Purpose: Parsing the .G files from Sly 3
+//  Category: Sly Cooper Modding Experience
+// File Mask: *.G
+//  ID Bytes: 5A 52 42 2E 07 00 // ZRB 0x2E 0x07 0x00
+//   History: 
+//------------------------------------------------
+/*
+8-Bit Signed Integer - char, byte, CHAR, BYTE
+8-Bit Unsigned Integer - uchar, ubyte, UCHAR, UBYTE
+16-Bit Signed Integer - short, int16, SHORT, INT16
+16-Bit Unsigned Integer - ushort, uint16, USHORT, UINT16, WORD
+32-Bit Signed Integer - int, int32, long, INT, INT32, LONG
+32-Bit Unsigned Integer - uint, uint32, ulong, UINT, UINT32, ULONG, DWORD
+64-Bit Signed Integer - int64, quad, QUAD, INT64, __int64
+64-Bit Unsigned Integer - uint64, uquad, UQUAD, UINT64, QWORD, __uint64
+32-Bit Floating Point Number - float, FLOAT
+64-Bit Floating Point Number - double, DOUBLE
+16-Bit Floating Point Number - hfloat, HFLOAT
+Date Types - DOSDATE, DOSTIME, FILETIME, OLETIME, time_t, time64_t
+cBlack - 0x000000
+cRed - 0x0000ff
+cDkRed - 0x000080
+cLtRed - 0x8080ff
+cGreen - 0x00ff00
+cDkGreen - 0x008000
+cLtGreen - 0x80ff80
+cBlue - 0xff0000
+cDkBlue - 0x800000
+cLtBlue - 0xff8080
+cPurple - 0xff00ff
+cDkPurple - 0x800080
+cLtPurple - 0xffe0ff
+cAqua - 0xffff00
+cDkAqua - 0x808000
+cLtAqua - 0xffffe0
+cYellow - 0x00ffff
+cDkYellow - 0x008080
+cLtYellow - 0x80ffff
+cDkGray - 0x404040
+cGray - 0x808080,
+cSilver - 0xc0c0c0,
+cLtGray - 0xe0e0e0
+cWhite - 0xffffff
+cNone - 0xffffffff
+*/
+
+// After every field of every struct there's an address.
+// The address is the location of the instruction that reads the field.
+// The addresses are all got from the Sly 3 PS3 (PSN) US version (NPUA80665)
+
+local int bgcol, fgcol;
+local int i = 0;
+local int j = 0;
+local int k = 0;
+local byte PrintMode = 0;
+
+typedef struct vec3_t(int bcol, int fcol)
+{
+	bgcol = bcol; fgcol = fcol;
+	float X, Y, Z;
+} Vec3<read=read_vec3, bgcolor=bgcol, fgcolor=fgcol>;
+string read_vec3(Vec3 &v)
+{
+	local string s;
+	SPrintf(s, "%11f %11f %11f", v.X, v.Y, v.Z);
+	return s;
+}
+
+typedef struct mat3_t(int bcol, int fcol)
+{
+	bgcol = bcol; fgcol = fcol;
+	Vec3 M0(bgcol, fgcol);
+	Vec3 M1(bgcol, fgcol);
+	Vec3 M2(bgcol, fgcol);
+} Mat3 <read=read_mat3>;
+string read_mat3(Mat3 &v)
+{
+	string s;
+	SPrintf(s,
+"\n%11f\t%11f\t%11f %11f\t%11f\t%11f %11f\t%11f\t%11f",
+v.M0.X, v.M0.Y, v.M0.Z,
+v.M1.X, v.M1.Y, v.M1.Z,
+v.M2.X, v.M2.Y, v.M2.Z);
+	return s;
+}
+
+struct Header_t
+{
+    char Magic[0x4]<bgcolor=cRed>; // 001c9bb8
+    ushort Version<bgcolor=cRed>; // 001c9bf8
+    ushort Count<bgcolor=cAqua>; // 001bf684
+};
+
+struct Flag3_t
+{
+    uint unk1; // 001bf2c4
+    float unk2; // 001bf330
+    float unk3; // 001bf344
+    float unk4; // 001bf358
+    ubyte unk5; // 001bf368
+    ubyte unk6; // 001bf37c
+    ubyte unk7; // 001bf390
+    if (unk6 == 0 || unk6 == 1)
+    {
+        uint unk8; // 001bf3e8
+    }
+};
+
+struct Flag7_t
+{
+    ushort unk1; // 001bf0a4
+    ushort unk2; // 001bf0bc
+    ushort unk3; // 001bf0cc
+    ushort unk4; // 001bf0dc
+    uint unk5; // 001bf0ec
+};
+
+struct Flag4_t
+{
+    uint unk1; // 001bf29c
+    ushort unk2; // 001bf2ac
+};
+
+struct PolygonData_t
+{
+    BigEndian();
+    uint RGBA<fgcolor=cYellow>; // 001bea08
+    LittleEndian();
+    ubyte unk2; // 001bea7c
+    short PositionX; // 001bea90
+    short PositionY; // 001beaa0
+};
+
+struct Polygon_t
+{
+    ubyte VtxCount<bgcolor=cBlack, fgcolor=cRed>; // 001be934
+    ubyte Layer<bgcolor=cBlack, fgcolor=cRed>; // 001be944
+    ubyte unk3<bgcolor=cBlack, fgcolor=cRed>; // 001be954
+    ubyte unk4<bgcolor=cBlack, fgcolor=cRed>; // 001be968
+    ubyte unk5<bgcolor=cBlack, fgcolor=cRed>; // 001be97c
+    if (VtxCount != 0) // 001be9e0
+    {
+        PolygonData_t PolygonData[VtxCount]<optimize=false>;
+    }
+};
+
+struct FirstSection_t
+{
+    ushort Index<bgcolor=cBlack, fgcolor=cPurple>; // 001bf6d8
+    uint Type<bgcolor=cBlack, fgcolor=cGreen>; // 001be708
+    if (Type < 9) // 001be718
+    {
+        if (Type == 1) // 001be888
+        {
+            uint unk1<bgcolor=cBlack, fgcolor=cRed>; // 001be88c
+            ushort PolyCount<bgcolor=cBlack, fgcolor=cRed>; // 001be89c
+            if (PolyCount != 0) // 001be91c
+            {
+                Polygon_t Polygon[PolyCount]<optimize=false>;
+            }
+        }
+        else if (Type == 3) // 001bf2c0
+        {
+            Flag3_t Flag3[1]<optimize=false>;
+        }
+        else if (Type == 4) // 001bf298
+        {
+            Flag4_t Flag4[1]<optimize=false>;
+        }
+        //else if (Type == 5)
+        //{
+        //    // Nothing? First ID of menu_pause
+        //}
+        else if (Type == 7) // 001bf09c
+        {
+            Flag7_t Flag7[1]<optimize=false>;
+        }
+    }
+};
+
+struct R6_t
+{
+    ubyte unk1; // 001bfe84
+};
+
+struct R5_t
+{
+    uint unk1; // 001bfd44
+    uint unk2; // 001bfd54
+};
+
+struct R4_t
+{
+    ushort unk1; // 001bfc58
+    ubyte unk2; // 001bfc74
+    ubyte unk3; // 001bfc84
+    ubyte unk4; // 001bfca0
+    ubyte unk5; // 001bfcbc
+    uint unk6; // 001bfbc4
+    Mat3 unk7(cGreen, cNone)<optimize=false>; // 001bfbdc
+};
+
+struct R3_t
+{
+    
+    float unk1<bgcolor=cDkRed>; // 001bfa80
+    ubyte unk2Count; // 001bfa90
+    ubyte unk3Count; // 001bfaa0
+    ubyte unk4Count; // 001bfab0
+    ubyte unk5; // 001bfac0
+    ubyte unk6; // 001bfae4
+    uint unk7; // 001bfb08 (read as uint but casted as float?)
+    if (unk2Count != 0) // 001bfb60
+    {
+        R4_t R4[unk2Count]<optimize=false>;
+    }
+
+    if (unk3Count != 0) // 001bfce4
+    {
+        R5_t R5[unk3Count]<optimize=false>;
+    }
+
+    if (unk4Count != 0) // 001bfe74
+    {
+        R6_t R6[unk4Count]<optimize=false>;
+    }
+};
+
+struct R2_t
+{
+    float unk1<bgcolor=cRed>; // 001bf9f4
+    uint unk2; // 001bfa08
+    ushort unk3Count; // 001bfa1c
+    if (unk3Count != 0)
+    {
+        R3_t R3[unk3Count]<optimize=false>;
+    }
+};
+
+struct R1_t
+{
+    ushort unk1<bgcolor=cLtRed>; // 001bf840
+    ushort unk2; // 001bf880
+    ushort unk3Count; // 001bf958
+    if (unk3Count != 0)
+    {
+        R2_t R2[unk3Count]<optimize=false>;
+    }
+};
+
+struct SecondSection_t
+{
+    ushort Count<bgcolor=cAqua>; // 001bf7a8
+    if (Count != 0)
+    {
+        R1_t R1[Count]<optimize=false>;
+    }
+};
+
+Header_t Header[1];
+FirstSection_t FirstSection[Header.Count]<optimize=false>;
+SecondSection_t SecondSection[1]<optimize=false>;
+
+if (PrintMode == 2)
+{
+    i = 0;
+    j = 0;
+    k = 0;
+    local int temp = 0;
+    for (i = 0; i < Header.Count; i++)
+    {
+        Printf("%04X | %08X", FirstSection[i].Index, FirstSection[i].Type);
+        
+        if (FirstSection[i].Type < 9)
+        {
+            if (FirstSection[i].Type == 1) // Polygon
+            {
+                Printf(" | %04X | %04X", FirstSection[i].unk1, FirstSection[i].PolyCount);
+                for (j = 0; j < FirstSection[i].PolyCount; j++)
+                {
+                    temp = FirstSection[i].Polygon[j].PolygonData[0].RGBA;
+                    if ((temp & 0xFF) == 0x80)
+                    {
+                        temp = (temp & 0xFFFFFF00) + 0xFF;
+                    }
+                    else
+                    {
+                        temp = (temp & 0xFFFFFF00) + ((temp & 0xFF) * 2);
+                    }
+                    Printf("\n<polygon Layer=\"%d\" style=\"fill: #%08X\" points=\"", FirstSection[i].Polygon[j].Layer, temp);
+                    for (k = 0; k < FirstSection[i].Polygon[j].VtxCount; k++)
+                    {
+                        Printf("%d,%d ", FirstSection[i].Polygon[j].PolygonData[k].PositionX, FirstSection[i].Polygon[j].PolygonData[k].PositionY);
+                        
+                    }
+                    Printf("\" />");
+                }
+            }
+        }
+        Printf("\n");
+    }
+}
