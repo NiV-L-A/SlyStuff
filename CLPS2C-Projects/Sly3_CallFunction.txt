@@ -1,5 +1,4 @@
-Sly 3 ntsc call function with flag at 000F0000
-```
+// Sly 3 ntsc call function with flag at 000F0000
 // Hook
 ASM_START 001cb2c4
     j 0x000F1000
@@ -24,4 +23,3 @@ ASM_START 000F1000
         j 0x001cb2cc
         nop
 ASM_END
-```
