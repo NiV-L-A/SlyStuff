@@ -1,0 +1,27 @@
+Sly 3 ntsc call function with flag at 000F0000
+```
+// Hook
+ASM_START 001cb2c4
+    j 0x000F1000
+    nop
+ASM_END
+
+ASM_START 000F1000
+    lui $t0,0x000F
+    lb $t1,0x0($t0)
+    li $at,1
+    beq $t1,$at,call
+    nop
+    b ret
+    nop
+    call: sb $zero,0x0($t0)
+        li $a0,0x46f810
+        li $a1,0
+        jal 0x0021ddc0
+        nop
+    ret: lui $v1,0x37 // og instructions. Increase game's frame counter
+        lw $v0,-0x39b0($v1)
+        j 0x001cb2cc
+        nop
+ASM_END
+```
