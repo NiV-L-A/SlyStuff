@@ -1,0 +1,73 @@
+// 003D0D00 to
+// ptr to string, rgba, xcoord, ycoord, size, xstretch, ystretch, layer, align, null, draw
+// 00 0E 3D 00 FF 00 00 FF 00 00 00 00 00 00 C8 42 C3 F5 28 3F 00 00 80 3F 00 00 80 3F 10 00 00 01 20 0E 3D 00 00 FF 00 FF 00 00 48 42 00 00 C8 42 C3 F5 28 3F 00 00 80 3F 00 00 80 3F 10 00 00 01 40 0E 3D 00 00 00 FF FF 00 00 C8 42 00 00 C8 42 C3 F5 28 3F 00 00 80 3F 00 00 80 3F 10 00 00 01
+
+ASM_START 001cdb48
+	j 0x000F1000
+	nop
+ASM_END
+
+ASM_START 000F1000
+	// save registers on the stack
+	addiu $sp,$sp,-0x40
+	sw $s0,0x30($sp) 
+	sw $s1,0x20($sp)
+	sw $s2,0x10($sp)
+	li $s0,0x003D0D00 // Codecave (first struct)
+	move $s1,$zero // Counter
+	move $s2,$zero // Destination struct ($sp+0x30)
+	loop: li $at,3 // How many to read
+		beq $at,$s1,ret
+		nop
+		lb $t0,0x1F($s0) // check flag
+		beq $zero,$t0,increment_loop
+		nop
+		// draw
+		addiu $sp,$sp,-0x80
+		addiu $s2,$sp,0x30
+		move $a0,$s2 // destination
+		lw $a1,0x0($s0) // string
+		lwc1 $f12,0x10($s0) // scale
+		sw $zero,($sp)
+		sw $zero,0x4($sp)
+		li $at,0x44200000
+		sw $at,0x8($sp)
+		li $at,0x43F66667
+		sw $at,0xC($sp)
+		lw $at,0x04($s0) // rgba
+		sw $at,0x10($sp)
+		sw $at,0x20($sp)
+		lb $at,0x1D($s0) // alignment
+		sw $at,0x14($sp)
+		sw $zero,0x18($sp)
+        jal 0x00215AC0 // build struct
+        nop
+		lwc1 $f0,0x14($s0) // stretch hz
+		swc1 $f0,0x7C($s2)
+		lwc1 $f0,0x18($s0) // stretch vt
+		swc1 $f0,0x80($s2)
+		lwc1 $f0,0x8($s0) // x
+		lwc1 $f1,0xC($s0) // y
+		swc1 $f0,0x4($sp)
+		swc1 $f1,0x0($sp)
+		move $a0,$s2
+		move $a1,$sp
+		li $at,0x42000000 // 32
+		mtc1 $at,$f20
+		swc1 $f20,0x8($sp)
+		swc1 $f20,0xC($sp)
+		lb $a2,0x1C($s0) // layer
+		jal 0x002163B0 // draw
+		nop
+		addiu $sp,$sp,0x80
+		increment_loop: addiu $s1,1
+			addiu $s0,0x20
+			b loop
+			nop
+	ret: lw $s0,0x30($sp) // load back the saved registers
+		lw $s1,0x20($sp)
+		lw $s2,0x10($sp)
+		addiu $sp,$sp,0x40
+		j 0x001cdb54
+		nop
+ASM_END

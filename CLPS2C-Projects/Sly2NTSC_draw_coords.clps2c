@@ -1,0 +1,181 @@
+// Sly 2 ntsc, draw active character's coords at the bottom right of the screen
+// Set 203D0D0F, 203D0D1F and 203D0D2F to 1 (to convert float to strings)
+// Set 203D0D8F, 203D0DAF, 203D0DCF to 1 (to draw)
+
+// Zac's Global coordinates
+// Hook
+ASM_START 00256D1C
+    j 0x000F1300
+ASM_END
+ASM_START 000F1300
+    // Go to the active character's transformation component
+    lw $t1,0x2DE2F0 // read active character pointer
+    addi $t2,$t1,0x58 // add transformation offset
+    lw $t2,($t2)
+    // get coords
+    lw $t3,0x30($t2)
+    lw $t4,0x34($t2)
+    lw $t5,0x38($t2)
+    // store coords
+    lui $at,0x3D
+    sw $t3,0x0D34($at)
+    sw $t4,0x0D38($at)
+    sw $t5,0x0D3C($at)
+    // og instructions
+    jr $ra
+    nop
+ASM_END
+
+// Draw string
+// Hook
+ASM_START 001cdb48
+    j 0x000F1100
+    nop
+ASM_END
+ASM_START 000F1100
+    // sp at 00471EE0
+    addiu $sp,$sp,-0x40 // 00471EE0 -> 00471EA0
+    sw $s0,0x30($sp) 
+    sw $s1,0x20($sp)
+    sw $s2,0x10($sp)
+    li $s0,0x003D0D70 // Codecave
+    move $s1,$zero // Counter
+    move $s2,$zero // destination struct ($sp+0x30)
+    loop: li $at,3
+        beq $at,$s1,ret
+        nop
+        lb $t0,0x1F($s0)
+        beq $zero,$t0,increment_loop
+        nop
+        // draw
+        addiu $sp,$sp,-0x180
+        addiu $s2,$sp,0x30
+        move $a0,$s2 // destination
+        lw $a1,0x0($s0) // string
+        lwc1 $f12,0x10($s0) // scale
+        sw $zero,($sp)
+        sw $zero,0x4($sp)
+        li $at,0x44200000
+        sw $at,0x8($sp)
+        li $at,0x43F66667
+        sw $at,0xC($sp)
+        lw $at,0x04($s0) // rgba
+        sw $at,0x10($sp)
+        sw $at,0x20($sp)
+        lb $at,0x1D($s0) // alignment
+        sw $at,0x14($sp)
+        sw $zero,0x18($sp)
+        jal 0x00215AC0 // build struct
+        nop
+        lwc1 $f0,0x14($s0) // stretch hz
+        swc1 $f0,0x7C($s2)
+        lwc1 $f0,0x18($s0) // stretch vt
+        swc1 $f0,0x80($s2)
+        lwc1 $f0,0x8($s0) // x
+        lwc1 $f1,0xC($s0) // y
+        swc1 $f0,0x4($sp)
+        swc1 $f1,0x0($sp)
+        move $a0,$s2
+        move $a1,$sp
+        li $at,0x42000000 // 32
+        mtc1 $at,$f20
+        swc1 $f20,0x8($sp)
+        swc1 $f20,0xC($sp)
+        lb $a2,0x1C($s0) // layer
+        jal 0x002163B0
+        nop
+        addiu $sp,$sp,0x180
+        increment_loop: addiu $s1,1
+            addiu $s0,0x20
+            b loop
+            nop
+    ret: lw $s0,0x30($sp)
+        lw $s1,0x20($sp)
+        lw $s2,0x10($sp)
+        addiu $sp,$sp,0x40
+        j 0x001cdb54
+        nop
+ASM_END
+
+// Float to string
+// Hook
+ASM_START 001A761C
+    j 0x000F1000
+    nop
+ASM_END
+ASM_START 000F1000
+    addiu $sp,$sp,-0x40
+    sw $s0,0x30($sp) 
+    sw $s1,0x20($sp)
+    sw $s2,0x10($sp)
+    li $s0,0x003D0D00 // Codecave
+    move $s1,$zero // Counter
+    move $s2,$zero // unused
+    loop: li $at,3
+        beq $at,$s1,ret
+        nop
+        lb $t0,0xF($s0)
+        beq $zero,$t0,increment_loop
+        nop
+        // convert to double
+        addiu $sp,$sp,-0x100
+        lw $t0,0x0($s0)
+        lwc1 $f12,0x0($t0)
+        jal 0x0023e290
+        nop
+        // convert to string
+        // a0: dest
+        // a1: ptr to format
+        // a2: ptr to double value
+        // Store at $sp the double value
+        sd $v0,0x0($sp)
+        lw $a0,0x4($s0)
+        lw $a1,0x8($s0)
+        move $a2,$sp
+        jal 0x0021EC60
+        nop
+        addiu $sp,$sp,0x100
+        increment_loop: addiu $s1,1
+            addiu $s0,0x10
+            b loop
+            nop
+    ret: lw $s0,0x30($sp)
+        lw $s1,0x20($sp)
+        lw $s2,0x10($sp)
+        addiu $sp,$sp,0x40
+        // og instructions, increase frame counter
+        lw $v0,-0x1AC8($s1)
+        addiu $v0,0x1
+        j 0x001A7624
+        nop
+ASM_END
+
+Function CtorDrawString(address, ptrToString, RGBA, XCoord, YCoord, Scale, StretchHorizontal, StretchVertical, Layer, Alignment)
+    W32 address ptrToString
+    Write32 address+0x4 RGBA
+    WriteFloat address+0x8 XCoord
+    WriteFloat address+0xC YCoord
+    WriteFloat address+0x10 Scale
+    WriteFloat address+0x14 StretchHorizontal
+    WriteFloat address+0x18 StretchVertical
+    Write8 address+0x1C Layer
+    Write8 address+0x1D Alignment
+EndFunction
+
+Set StrStructOff 0x203D0D70
+Set StrStringOff 0x203D0D40
+If StrStructOff+0x1F =. 0
+    Call CtorDrawString(StrStructOff, StrStringOff, 0xFFAFAFAF, 450, 330, 0.53, 1, 1, 0x11, 0)
+    Call CtorDrawString(StrStructOff+0x20, StrStringOff+0x10, 0xFFAFAFAF, 450, 430, 0.53, 1, 1, 0x11, 0)
+    Call CtorDrawString(StrStructOff+0x40, StrStringOff+0x20, 0xFFAFAFAF, 450, 530, 0.53, 1, 1, 0x11, 0)
+EndIf
+
+Function CtorFloatToString(address, ptrToFloat, ptrToDest, ptrToFormat)
+    Write32 address ptrToFloat
+    Write32 address+4 ptrToDest
+    Write32 address+8 ptrToFormat
+EndFunction
+Call CtorFloatToString(203d0d00, 0x203D0D34, 0x203D0D40, 0x203D0D30)
+Call CtorFloatToString(203d0d10, 0x203D0D38, 0x203D0D50, 0x203D0D30)
+Call CtorFloatToString(203d0d20, 0x203D0D3C, 0x203D0D60, 0x203D0D30)
+WS 203D0D30 "%.f\0"

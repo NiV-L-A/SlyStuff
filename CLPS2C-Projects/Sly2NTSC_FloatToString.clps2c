@@ -1,0 +1,53 @@
+// @03D0D00:
+// Ptr to float, Ptr to string, Ptr to format, @0xF: flag
+
+// Hook
+ASM_START 001A761C
+    j 0x000F1000
+    nop
+ASM_END
+
+ASM_START 000F1000
+    addiu $sp,$sp,-0x40
+    sw $s0,0x30($sp) 
+    sw $s1,0x20($sp)
+    sw $s2,0x10($sp)
+    li $s0,0x003D0D00 // Codecave
+    move $s1,$zero // Counter
+    move $s2,$zero // destination struct ($sp+0x30)
+    loop: li $at,1
+        beq $at,$s1,ret
+        nop
+        lb $t0,0xF($s0)
+        beq $zero,$t0,increment_loop
+        nop
+        addiu $sp,$sp,-0x100
+        // convert float to double
+        lw $t0,0x0($s0)
+        lwc1 $f12,0x0($t0)
+        jal 0x0023e290
+        nop
+        // convert to string
+        // a0: dest
+        // a1: ptr to format
+        // a2: ptr to double value
+        sd $v0,0x0($sp)
+        lw $a0,0x4($s0)
+        lw $a1,0x8($s0)
+        move $a2,$sp
+        jal 0x0021EC60
+        nop
+        addiu $sp,$sp,0x100
+        increment_loop: addiu $s1,1
+            addiu $s0,0x20
+            b loop
+            nop
+    ret: lw $s0,0x30($sp)
+        lw $s1,0x20($sp)
+        lw $s2,0x10($sp)
+        addiu $sp,$sp,0x40
+        lw $v0,-0x1AC8($s1) // og instructions
+        addiu $v0,0x1
+        j 0x001A7624
+        nop
+ASM_END
