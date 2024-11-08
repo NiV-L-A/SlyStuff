@@ -1,0 +1,33 @@
+Set PlaySound 210740
+Set Cave F0000
+Set RandInRange 11D3F8
+
+// hook
+ASM_START PlaySound
+    j Cave
+    nop
+ASM_END
+
+ASM_START Cave
+    // Store on the stack $ra and $t1
+    addiu $sp,$sp,-0x10
+    sw $ra,0x0($sp)
+    sw $t1,0x4($sp)
+    // rand between 2 values
+    li $a0,0
+    lw $a1,0x3DD138 // sound id count in the current map
+    jal RandInRange
+    nop
+    // set back the arguments
+    li $a0,0x3DD490 // hardcoded
+    move $a1,$v0 // new random id
+    // Get $ra and $t1 back from the stack
+    lw $ra,0x0($sp)
+    lw $t1,0x4($sp)
+    addiu $sp,$sp,0x10
+    // og instructions
+    addiu $sp,$sp,-0x80
+    daddu $v0,$t1,$zero
+    j PlaySound+8
+    nop
+ASM_END
